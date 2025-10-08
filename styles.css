@@ -1026,3 +1026,50 @@ body.login-page {
     gap: 0.6rem;
   }
 }
+/* ============================================================
+   📱 CORRECCIÓN: SCROLL EN PANTALLAS PEQUEÑAS
+   ============================================================ */
+@media (max-width: 900px) {
+  html, body {
+    height: 100%;
+    overflow: auto !important; /* ✅ Permitir scroll global */
+  }
+
+  .container {
+    flex-direction: column;
+    height: auto; /* ✅ No forzar altura fija */
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  /* Sidebar (panel lateral) */
+  .sidebar {
+    max-height: calc(100vh - 60px);
+    overflow-y: auto; /* ✅ Scroll vertical dentro del panel */
+    padding-bottom: 1rem;
+  }
+
+  /* Paneles internos con scroll si son largos */
+  .panel {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  /* Ajuste para la leyenda */
+  .sector-legend {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    margin: 10px auto;
+    z-index: 10;
+  }
+
+  /* Mapa se ajusta dinámicamente */
+  #map {
+    height: 60vh; /* ✅ Altura adaptable */
+    min-height: 350px;
+  }
+}
+
+
