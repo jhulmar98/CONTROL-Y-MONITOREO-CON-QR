@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema Integral de Monitoreo y Alerta</title>
+
+  <!-- 🎨 Estilos principales -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- 🗺️ Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+
+<body>
+  <!-- ============================================================
+       🧭 BARRA SUPERIOR (NAVBAR)
+       ============================================================ -->
+  <nav class="navbar">
+    <!-- Botón del menú móvil -->
+    <button class="menu-toggle" id="menuToggle">☰</button>
+
+    <!-- Botones principales (solo escritorio) -->
+    <div class="nav-buttons desktop-only">
+      <button class="btn" id="btnLocales">LOCALES</button>
+      <button class="btn active" id="btnPersonal">PERSONAL</button>
+    </div>
+
+    <!-- Título -->
+    <h1>SISTEMA INTEGRAL DE MONITOREO</h1>
+
+    <!-- Cerrar sesión (solo escritorio) -->
+    <div class="user-actions desktop-only">
+      <button class="btn logout-btn" id="btnLogout">Cerrar sesión</button>
+    </div>
+  </nav>
+
+  <!-- Overlay (para cerrar menú móvil) -->
+  <div class="menu-overlay" id="menuOverlay"></div>
+
+  <!-- ============================================================
+       🧱 CONTENEDOR PRINCIPAL
+       ============================================================ -->
+  <div class="container">
+    <!-- =============================== -->
+    <!-- 📂 SIDEBAR / PANEL LATERAL -->
+    <!-- =============================== -->
+    <aside class="sidebar" id="sidebar">
+
+      <!-- 🔹 Opciones principales solo para móviles -->
+      <div class="mobile-menu mobile-only">
+        <button class="btn" id="btnPersonalMobile">PERSONAL</button>
+        <button class="btn" id="btnLocalesMobile">LOCALES</button>
+        <button class="logout-btn" id="btnLogoutMobile">Cerrar sesión</button>
+      </div>
+
+      <!-- PANEL PERSONAL -->
+      <div class="panel" id="panel-personal">
+        <h2>PERSONAL <span class="count">0</span></h2>
+        <input type="date" id="fecha" placeholder="dd/mm/aaaa" />
+
+        <div class="turnos">
+          <span>Turno</span>
+          <div class="turno-buttons">
+            <button class="mini-btn active" data-turno="TI">TI</button>
+            <button class="mini-btn" data-turno="T2">T2</button>
+            <button class="mini-btn" data-turno="T3">T3</button>
+            <button class="mini-btn" data-turno="TODO">Todo</button>
+          </div>
+        </div>
+
+        <input type="text" id="buscador" placeholder="Nombre o Código" />
+        <label class="check">
+          <input type="checkbox" id="soloComentario" /> Con comentario
+        </label>
+        <button class="btn full" id="btnHoy">Hoy</button>
+      </div>
+
+      <!-- PANEL REPORTES -->
+      <div class="panel" id="panel-reportes">
+        <h2>REPORTES</h2>
+        <button class="report-btn" id="btnReporteSerenos">📊 Reporte Serenos</button>
+        <button class="report-btn" id="btnReporteLocales">📊 Reporte Locales</button>
+        <button class="report-btn" id="btnReporteCalificaciones">📑 Ver Calificaciones</button>
+        <button class="report-btn" id="btnNotificaciones">💬 Ver Notificaciones</button>
+      </div>
+
+      <!-- PANEL LOCALES -->
+      <div class="panel" id="panel-locales" style="display:none;">
+        <h2>LOCALES <span class="count-locales">0</span></h2>
+        <label for="filtroEstadoLocales">Estado</label>
+        <select id="filtroEstadoLocales">
+          <option value="TODO">Todos</option>
+          <option value="PATRULLADOS">Patrullados</option>
+          <option value="NOPATRULLADOS">No patrullados</option>
+        </select>
+        <input type="text" id="buscarLocal" placeholder="Nombre del local..." />
+        <div id="listaLocales" class="lista-locales"></div>
+      </div>
+    </aside>
+
+    <!-- =============================== -->
+    <!-- 🗺️ ÁREA PRINCIPAL / MAPA -->
+    <!-- =============================== -->
+    <main class="main-content">
+      <div class="sector-legend" id="legend-sectores">
+        <div class="card">
+          <div class="title">SERENOS POR SECTOR</div>
+          <div class="chips">
+            <div class="chip"><span class="dot" style="background:#3b82f6"></span>S1 <span id="s1" class="val">0</span></div>
+            <div class="chip"><span class="dot" style="background:#22c55e"></span>S2 <span id="s2" class="val">0</span></div>
+            <div class="chip"><span class="dot" style="background:#ef4444"></span>S3 <span id="s3" class="val">0</span></div>
+            <div class="chip"><span class="dot" style="background:#a855f7"></span>S4 <span id="s4" class="val">0</span></div>
+            <div class="chip"><span class="dot" style="background:#f59e0b"></span>S5 <span id="s5" class="val">0</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mapa -->
+      <div id="map"></div>
+    </main>
+  </div>
+
+  <!-- ============================================================
+       💬 PANEL DE NOTIFICACIONES FLOTANTE
+       ============================================================ -->
+  <div id="panel-notificaciones" class="noti-float" style="display:none;">
+    <div class="noti-header">
+      <h2>NOTIFICACIONES</h2>
+      <button id="btnCerrarNoti" class="close-btn">❌</button>
+    </div>
+    <div id="notiFeed" class="noti-feed"></div>
+    <div class="grp" style="display:none;"></div>
+  </div>
+
+  <!-- ============================================================
+       ⚙️ SCRIPTS
+       ============================================================ -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <script>
+    const user = JSON.parse(localStorage.getItem("msiUser"));
+    if (!user) window.location.href = "login.html";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const sidebar = document.getElementById("sidebar");
+      const menuToggle = document.getElementById("menuToggle");
+      const overlay = document.getElementById("menuOverlay");
+
+      // Cerrar sesión (todos los botones)
+      const logoutBtns = [document.getElementById("btnLogout"), document.getElementById("btnLogoutMobile")];
+      logoutBtns.forEach(btn => {
+        if (btn) btn.addEventListener("click", () => {
+          localStorage.removeItem("msiUser");
+          window.location.href = "login.html";
+        });
+      });
+
+      // Menú lateral
+      menuToggle.addEventListener("click", () => {
+        sidebar.classList.toggle("active");
+        overlay.classList.toggle("active");
+      });
+
+      overlay.addEventListener("click", () => {
+        sidebar.classList.remove("active");
+        overlay.classList.remove("active");
+      });
+
+      // Vincular botones móviles con sus equivalentes
+      const btnLocalesMobile = document.getElementById("btnLocalesMobile");
+      const btnPersonalMobile = document.getElementById("btnPersonalMobile");
+
+      btnLocalesMobile.addEventListener("click", () => {
+        document.getElementById("btnLocales").click();
+        sidebar.classList.remove("active");
+        overlay.classList.remove("active");
+      });
+      btnPersonalMobile.addEventListener("click", () => {
+        document.getElementById("btnPersonal").click();
+        sidebar.classList.remove("active");
+        overlay.classList.remove("active");
+      });
+    });
+  </script>
+
+  <!-- Módulos principales -->
+  <script type="module" src="js/mapa.js"></script>
+  <script type="module" src="js/turno.js"></script>
+  <script type="module" src="js/personal.js"></script>
+  <script type="module" src="js/localesPanel.js"></script>
+  <script type="module" src="js/reportesSerenos.js"></script>
+  <script type="module" src="js/reportesLocales.js"></script>
+  <script type="module" src="js/notificaciones.js"></script>
+  <script type="module" src="js/reportesCalificaciones.js"></script>
+
+  <!-- Inicialización -->
+  <script type="module">
+    import { initNotificacionesUI } from "./js/notificaciones.js";
+    import { getConteoPersonal, getSerenosPorSector } from "./js/personal.js";
+    import { getLocalesRojos } from "./js/localesPanel.js";
+    import { abrirReporteSerenos } from "./js/reportesSerenos.js";
+    import { abrirReporteLocales } from "./js/reportesLocales.js";
+    import { abrirReporteCalificaciones } from "./js/reportesCalificaciones.js";
+
+    const btnLocales = document.getElementById("btnLocales");
+    const btnPersonal = document.getElementById("btnPersonal");
+    const btnNotificaciones = document.getElementById("btnNotificaciones");
+    const btnCerrarNoti = document.getElementById("btnCerrarNoti");
+
+    const panelLocales = document.getElementById("panel-locales");
+    const panelPersonal = document.getElementById("panel-personal");
+    const panelReportes = document.getElementById("panel-reportes");
+    const legendSectores = document.getElementById("legend-sectores");
+    const fechaInput = document.getElementById("fecha");
+
+    // Funciones auxiliares
+    function getTurnoActivo() {
+      return document.querySelector(".turno-buttons .mini-btn.active")?.dataset.turno || "TI";
+    }
+    function getFechaActual() {
+      return fechaInput?.value || new Date().toISOString().slice(0, 10);
+    }
+
+    // 🔹 Muestra solo el panel deseado y oculta los demás
+    function showPanel(panel) {
+      panelLocales.style.display = "none";
+      panelPersonal.style.display = "none";
+      panelReportes.style.display = "none";
+      legendSectores.style.display = "none";
+      if (panel) panel.style.display = "block";
+    }
+
+    // ============================================================
+    // 🧭 BOTÓN: LOCALES
+    // ============================================================
+    btnLocales.addEventListener("click", () => {
+      btnLocales.classList.add("active");
+      btnPersonal.classList.remove("active");
+
+      // 🔸 Mostrar solo LOCALES
+      showPanel(panelLocales);
+
+      // 🔸 Ocultar leyenda y reportes
+      legendSectores.style.display = "none";
+      panelReportes.style.display = "none";
+
+      // 🔸 Evento para que el mapa cargue solo locales
+      const evento = new CustomEvent("showLocales", {
+        detail: { fecha: getFechaActual(), turno: getTurnoActivo() },
+      });
+      window.dispatchEvent(evento);
+    });
+
+    // ============================================================
+    // 🧭 BOTÓN: PERSONAL
+    // ============================================================
+    btnPersonal.addEventListener("click", () => {
+      btnPersonal.classList.add("active");
+      btnLocales.classList.remove("active");
+
+      // 🔸 Mostrar personal, reportes y leyenda
+      showPanel(panelPersonal);
+      panelReportes.style.display = "block";
+      legendSectores.style.display = "block";
+
+      // 🔸 Evento para que el mapa vuelva a mostrar los serenos
+      const evento = new CustomEvent("showPersonal", {
+        detail: { fecha: getFechaActual(), turno: getTurnoActivo() },
+      });
+      window.dispatchEvent(evento);
+    });
+
+    // ============================================================
+    // 📊 REPORTES
+    // ============================================================
+    document.getElementById("btnReporteSerenos").addEventListener("click", abrirReporteSerenos);
+    document.getElementById("btnReporteLocales").addEventListener("click", abrirReporteLocales);
+    document.getElementById("btnReporteCalificaciones").addEventListener("click", abrirReporteCalificaciones);
+
+    // ============================================================
+    // 💬 NOTIFICACIONES
+    // ============================================================
+    btnNotificaciones.addEventListener("click", () => {
+      document.getElementById("panel-notificaciones").style.display = "flex";
+    });
+    btnCerrarNoti.addEventListener("click", () => {
+      document.getElementById("panel-notificaciones").style.display = "none";
+    });
+
+    // ============================================================
+    // 🚀 INICIALIZACIÓN
+    // ============================================================
+    initNotificacionesUI(getConteoPersonal, getLocalesRojos, getSerenosPorSector);
+  </script>
+
+</body>
+</html>
