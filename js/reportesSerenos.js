@@ -78,6 +78,7 @@ const modalHTML = `
             <th>Fecha</th>
             <th>Hora</th>
             <th>Turno</th>
+            <th>Sector</th>
             <th>Lat</th>
             <th>Lng</th>
           </tr>
@@ -192,6 +193,7 @@ async function consultar() {
           fecha: d.fecha || "",
           hora: d.hora || "",
           turno: d.turno || "",
+          sector: d.sector || "",
           lat: d.lat ?? "",
           lng: d.lng ?? ""
         });
@@ -231,6 +233,7 @@ async function consultar() {
             fecha: d.fecha || "",
             hora: d.hora || "",
             turno: d.turno || "",
+            sector: d.sector || "",
             lat: d.lat ?? "",
             lng: d.lng ?? ""
           });
@@ -269,6 +272,7 @@ async function consultar() {
       <td>${r.fecha}</td>
       <td>${r.hora}</td>
       <td>${r.turno}</td>
+      <td>${r.sector}</td>
       <td>${r.lat}</td>
       <td>${r.lng}</td>
     `;
@@ -282,7 +286,7 @@ function exportCSV() {
   if (!rowsActuales.length) return;
   const headers = [
     "Nombre","DNI","Cargo","Supervisor","Supervisor DNI",
-    "Comentario","Fecha","Hora","Turno","Lat","Lng"
+    "Comentario","Fecha","Hora","Turno","sector","Lat","Lng"
   ];
   const csvRows = [headers.join(";")];
 
@@ -290,7 +294,7 @@ function exportCSV() {
     const row = [
       r.nombre, r.dni, r.cargo, r.supervisor, r.supervisor_dni,
       (r.comentario||"").replace(/\n/g," ").replace(/;/g,","), // evitar romper celdas
-      r.fecha, r.hora, r.turno, r.lat, r.lng
+      r.fecha, r.hora, r.turno, r.sector, r.lat, r.lng
     ].map(v => `"${String(v).replace(/"/g,'""')}"`);
     csvRows.push(row.join(";"));
   }
