@@ -67,6 +67,7 @@ function bindPopup(marker, data) {
       Fecha: ${data.fecha || "-"}<br>
       Hora: ${data.hora || "-"}<br>
       Comentario: ${data.comentario || "—"}<br>
+      Lugar: ${data.sector || "—"}<br>
       Lat: ${data.lat}, Lng: ${data.lng}
     </div>
   `);
