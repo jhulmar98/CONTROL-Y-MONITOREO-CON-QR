@@ -69,6 +69,7 @@ export async function abrirReporteLocales() {
             <th>Fecha</th>
             <th>Hora</th>
             <th>Turno</th>
+            <th>Sector</th>
             <th>Lat</th>
             <th>Lng</th>
           </tr>
@@ -210,6 +211,7 @@ export async function abrirReporteLocales() {
           <td>${d.fecha || ""}</td>
           <td>${d.hora || ""}</td>
           <td>${d.turno || ""}</td>
+          <td>${d.sector || ""}</td>
           <td>${d.lat?.toFixed?.(6) || ""}</td>
           <td>${d.lng?.toFixed?.(6) || ""}</td>
         </tr>`
@@ -232,7 +234,7 @@ export async function abrirReporteLocales() {
     }
 
     let csv =
-      "Nombre;Dirección;ID Local;Supervisor;Supervisor DNI;Comentario;Fecha;Hora;Turno;Lat;Lng\n";
+      "Nombre;Dirección;ID Local;Supervisor;Supervisor DNI;Comentario;Fecha;Hora;Turno;Sector;Lat;Lng\n";
 
     filas.forEach(tr => {
       const celdas = Array.from(tr.querySelectorAll("td")).map(td => `"${td.textContent.trim()}"`);
