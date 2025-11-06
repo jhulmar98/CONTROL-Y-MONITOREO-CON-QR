@@ -37,9 +37,9 @@ export const LOCALES = {
   "L005-4.2": {
     id: "L005-4.2",
     label: "Edificio Torre Begonias",
-    direccion: "CALLE LAS BEGONIAS 415",
-    lat: -12.092493,
-    lng: -77.023986
+    direccion: "AV. PASEO DE LA REPUBLICA 3018",
+    lat: -12.091604,
+    lng: -77.023782
   },
   "L006-4.2": {
     id: "L006-4.2",
@@ -51,23 +51,23 @@ export const LOCALES = {
   "L007-4.2": {
     id: "L007-4.2",
     label: "Edificio Torre Parque 1",
-    direccion: "CALLE LAS BEGONIAS 526",
-    lat: -12.093526,
-    lng: -77.024950
+    direccion: "CALLE EL PARQUE 149",
+    lat: -12.093027,
+    lng: -77.025153
   },
    "L008-4.2": {
     id: "L008-4.2",
     label: "Edificio Torre Parque 2",
-    direccion: "CALLE LAS BEGONIAS 620",
-    lat: -12.094380,
-    lng: -77.025420
+    direccion: "CALLE EL PARQUE 291",
+    lat: -12.094765,
+    lng: -77.025814
   },
    "L009-4.2": {
     id: "L009-4.2",
     label: "Edificio el Consorcio",
-    direccion: "CALLE CHINCHON 1018",
-    lat: -12.095134,
-    lng: -77.026039
+    direccion: "AV. RIVERA NAVARRETE 827",
+    lat: -12.095535,
+    lng: -77.026292
   },
     "L010-4.4": {
     id: "L010-4.4",
@@ -80,5 +80,3 @@ export const LOCALES = {
 
   
 };
-
-
