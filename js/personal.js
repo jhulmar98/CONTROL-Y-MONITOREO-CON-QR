@@ -45,7 +45,7 @@ const toMillis = (ts) =>
   (ts && typeof ts.toMillis === "function") ? ts.toMillis() : Number(ts || 0);
 
 const colorByAge = (ms) =>
-  ((Date.now() - ms) / 3_600_000) >= 2 ? "red" : "blue";
+  ((Date.now() - ms) / 3_600_000) >= 4 ? "red" : "blue";
 
 function iconSereno(color = "blue") {
   return L.icon({
@@ -276,4 +276,5 @@ function aplicarFiltrosUI() {
 
     return sectores;
   }
+
 
