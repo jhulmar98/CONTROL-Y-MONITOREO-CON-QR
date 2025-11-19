@@ -75,6 +75,12 @@ function bindPopup(marker, data) {
     </div>
   `);
 }
+// Controla si estamos viendo el panel de locales
+let viendoLocales = false;
+export function setViendoLocales(flag) {
+  viendoLocales = flag;
+}
+
 
 /* =====================================================================
    Estado
@@ -112,21 +118,28 @@ function suscribirRuta(fecha, turno, { acumulando = false } = {}) {
       const ts = toMillis(data.timestamp);
       const prev = latestByDni.get(dni);
 
-      if (!prev || ts > prev.ts) {
-        const col = colorByAge(ts);
-        const marker = prev?.marker || L.marker([data.lat, data.lng]);
-        marker.setLatLng([data.lat, data.lng]).setIcon(iconSereno(col));
-        bindPopup(marker, data);
+      
 
-        // 🔹 Calcular sector dinámicamente con geocercas
-        const sector = getSectorForPoint(data.lat, data.lng);
-        if (sector) data.sector = sector;
+        // ⚠️ Actualizamos data, pero NO dibujamos si estamos en LOCALES
+        if (!prev || ts > prev.ts) {
+          const col = colorByAge(ts);
 
-        latestByDni.set(dni, { marker, ts, data });
-      }
+          // Solo dibujar si NO estamos viendo locales
+          if (!viendoLocales) {
+            const marker = prev?.marker || L.marker([data.lat, data.lng]);
+            marker.setLatLng([data.lat, data.lng]).setIcon(iconSereno(col));
+            bindPopup(marker, data);
+            latestByDni.set(dni, { marker, ts, data });
+          } else {
+            // Guardar los datos pero sin dibujar marker
+            latestByDni.set(dni, { marker: prev?.marker, ts, data });
+          }
+        }
+
     });
 
-    aplicarFiltrosUI();
+    if (!viendoLocales) aplicarFiltrosUI();
+
   });
 
   unsubs.push(unsub);
