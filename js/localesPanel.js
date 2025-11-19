@@ -1,6 +1,8 @@
 // localesPanel.js
 import { map, capaSerenos } from "./mapa.js";
 import { LOCALES } from "./locales.js";
+import { setViendoLocales } from "./personal.js";
+
 import { db } from "./firebase.js";
 import {
   collectionGroup,
@@ -190,9 +192,11 @@ export function getLocalesRojos() {
   return rojos;
 }
 window.addEventListener("showPersonal", () => {
-  // 🔁 Cuando se regresa de locales, refresca inmediatamente el mapa del personal
+  setViendoLocales(false);   // ← dejar de bloquear markers de serenos
+  capaLocales.clearLayers(); // ← limpiar casas del mapa
+
   const btnActivo = document.querySelector(".turno-buttons .mini-btn.active");
-  if (btnActivo) btnActivo.click();
+  if (btnActivo) btnActivo.click();  // refrescar personal
 });
 
 /* =============== Init =============== */
@@ -205,11 +209,13 @@ window.addEventListener("showPersonal", () => {
     ?.addEventListener("input", aplicarFiltrosLocales);
 
   window.addEventListener("showLocales", () => {
-    capaSerenos.clearLayers(); // ocultar serenos en modo locales
-    suscribirLocales();
-  });
+  setViendoLocales(true);       // ← ACTIVAR BLOQUEO
+  capaSerenos.clearLayers();    // ocultar serenos en modo locales
+  suscribirLocales();
+});
 
-  window.addEventListener("showPersonal", () => {
-    capaLocales.clearLayers(); // ocultar locales en modo personal
-  });
+  
+
+
+ 
 })();
