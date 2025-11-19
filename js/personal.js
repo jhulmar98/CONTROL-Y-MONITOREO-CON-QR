@@ -48,13 +48,16 @@ const colorByAge = (ms) =>
   ((Date.now() - ms) / 3_600_000) >= 2 ? "red" : "blue";
 
 function iconSereno(color = "blue") {
-  return L.divIcon({
-    html: `<div style="width:14px;height:14px;background:${color};
-            border:2px solid black;border-radius:4px;"></div>`,
-    iconSize: [14, 14],
-    className: ""
+  return L.icon({
+    iconUrl: color === "red" ? "../icon2.png" : "../icon1.png",
+    iconSize: [22, 22],
+    iconAnchor: [11, 22],
+    popupAnchor: [0, -22]
+
   });
 }
+
+
 
 function bindPopup(marker, data) {
   marker.bindPopup(`
