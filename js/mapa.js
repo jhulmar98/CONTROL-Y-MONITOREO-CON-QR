@@ -1,53 +1,29 @@
-/* js/personal.js
-   =====================================================================
-   PERSONAL en el mapa (asistencias)
-   Estructura:
-   asistencias/{DD-MM-YYYY}/{turno}/{dni}/registros/{doc}
-   ===================================================================== */
+// js/mapa.js
+// ============================================================
+// Núcleo del mapa (Leaflet) + Geocercas + Leyendas
+// ============================================================
 
 import { db } from "./firebase.js";
-import {
-  collectionGroup, query, where, orderBy, onSnapshot, limit
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-import { capaSerenos, updateSectorCountsFrom, getSectorForPoint } from "./mapa.js";
-import { getTurnoYFecha } from "./turno.js";
+// Crear mapa centrado en San Isidro
+export const map = L.map("map").setView([-12.097, -77.037], 14);
 
-/* =====================================================================
-   Helpers de fecha
-   ===================================================================== */
-function normDMY(input) {
-  if (!input) return null;
-  const s = String(input).trim();
-  let dd, mm, yyyy;
-  if (s.includes("-")) {
-    const p = s.split("-");
-    if (p[0].length === 4) [yyyy, mm, dd] = p; else [dd, mm, yyyy] = p;
-  } else if (s.includes("/")) {
-    const p = s.split("/");
-    if (p[0].length === 4) [yyyy, mm, dd] = p; else [dd, mm, yyyy] = p;
-  } else return null;
-  return `${String(dd).padStart(2,"0")}-${String(mm).padStart(2,"0")}-${yyyy}`;
-}
-function dmyToDate(dmy) {
-  const [dd, mm, yyyy] = dmy.split("-");
-  return new Date(`${yyyy}-${mm}-${dd}T00:00:00`);
-}
-function dmyToNext(dmy) {
-  const d = dmyToDate(dmy); d.setDate(d.getDate() + 1);
-  return `${String(d.getDate()).padStart(2,"0")}-${String(d.getMonth()+1).padStart(2,"0")}-${d.getFullYear()}`;
-}
+// Capa base OSM
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: '&copy; <a href="https://osm.org/copyright">OSM</a>'
+}).addTo(map);
 
-/* =====================================================================
-   Helpers varios
-   ===================================================================== */
-const toMillis = (ts) =>
-  (ts && typeof ts.toMillis === "function") ? ts.toMillis() : Number(ts || 0);
+// Capas lógicas
+export const capaGeofences = L.layerGroup().addTo(map); // polígonos
+export const capaSerenos   = L.layerGroup().addTo(map); // personal
+export const capaLocales = L.layerGroup().addTo(map);
 
-const colorByAge = (ms) =>
-  ((Date.now() - ms) / 3_600_000) >= 2 ? "red" : "blue";
 
-function iconSereno(color = "blue") {
+/* ============================================================
+   Helpers
+   ============================================================ */
+export function iconSereno(color = "blue") {
   return L.icon({
     iconUrl: color === "red" ? "../icon2.png" : "../icon1.png",
     iconSize: [22, 22],
@@ -59,207 +35,115 @@ function iconSereno(color = "blue") {
 
 
 
-function bindPopup(marker, data) {
-  marker.bindPopup(`
-    <div>
-      <b>${data.nombre || "-"}</b><br>
-      DNI: ${data.dni || "-"}<br>
-      Cargo: ${data.cargo || "-"}<br>
-      Supervisor: ${data.supervisor_nombre || "-"}<br>
-      Turno: ${data.turno.startsWith("T3") ? "T3" : data.turno}<br>
-      Fecha: ${data.fecha || "-"}<br>
-      Hora: ${data.hora || "-"}<br>
-      Comentario: ${data.comentario || "—"}<br>
-      Lugar: ${data.sector || "—"}<br>
-      Lat: ${data.lat}, Lng: ${data.lng}
-    </div>
-  `);
-}
-
-/* =====================================================================
-   Estado
-   ===================================================================== */
-const latestByDni = new Map(); // dni -> { marker, ts, data }
-export function getConteoPersonal() {
-  return latestByDni.size;
-}
-let unsubs = [];
-
-
-/* =====================================================================
-   Suscripción
-   ===================================================================== */
-function suscribirRuta(fecha, turno, { acumulando = false } = {}) {
-  const q = query(
-    collectionGroup(db, "registros"),
-    where("fecha", "==", fecha),
-    where("turno", "==", turno),
-    orderBy("timestamp", "desc"),
-    limit(800)
-  );
-
-  const unsub = onSnapshot(q, (snap) => {
-    if (!acumulando) {
-      latestByDni.clear();
-      capaSerenos.clearLayers();
-    }
-
-    snap.forEach((docSnap) => {
-      const data = docSnap.data() || {};
-      if (data.lat == null || data.lng == null) return;
-
-      const dni = String(data.dni || docSnap.id);
-      const ts = toMillis(data.timestamp);
-      const prev = latestByDni.get(dni);
-
-      if (!prev || ts > prev.ts) {
-        const col = colorByAge(ts);
-        const marker = prev?.marker || L.marker([data.lat, data.lng]);
-        marker.setLatLng([data.lat, data.lng]).setIcon(iconSereno(col));
-        bindPopup(marker, data);
-
-        // 🔹 Calcular sector dinámicamente con geocercas
-        const sector = getSectorForPoint(data.lat, data.lng);
-        if (sector) data.sector = sector;
-
-        latestByDni.set(dni, { marker, ts, data });
-      }
-    });
-
-    aplicarFiltrosUI();
-  });
-
-  unsubs.push(unsub);
-}
-
-/* =====================================================================
-   Orquestador
-   ===================================================================== */
-function suscribirPersonal(fechaDmy, turno) {
-  unsubs.forEach(u => { try { u(); } catch {} });
-  unsubs = [];
-  latestByDni.clear();
-  capaSerenos.clearLayers();
-
-  if (turno === "T3") {
-    suscribirRuta(fechaDmy, "T3-I", { acumulando: true });
-    suscribirRuta(dmyToNext(fechaDmy), "T3-II", { acumulando: true });
-  } else if (turno === "TODO") {
-    suscribirRuta(fechaDmy, "TI", { acumulando: true });
-    suscribirRuta(fechaDmy, "T2", { acumulando: true });
-    suscribirRuta(fechaDmy, "T3-I", { acumulando: true });
-    suscribirRuta(dmyToNext(fechaDmy), "T3-II", { acumulando: true });
-  } else {
-    suscribirRuta(fechaDmy, turno, { acumulando: false });
+export function getCoords(data) {
+  if (!data) return null;
+  if (typeof data.lat === "number" && typeof data.lng === "number") {
+    return [data.lat, data.lng];
   }
+  return null;
 }
 
-/* =====================================================================
-   Filtros de UI
-   ===================================================================== */
-function aplicarFiltrosUI() {
-  capaSerenos.clearLayers();
+export function getWhenS(data) {
+  if (!data?.timestamp) return null;
+  if (typeof data.timestamp.toDate === "function") return data.timestamp.toDate();
+  return new Date(data.timestamp);
+}
 
-  const texto = (document.querySelector("input[placeholder='Nombre o Código']")?.value || "").toLowerCase().trim();
-  const soloComentario = document.querySelector(".check input")?.checked;
+// Para pintar azul/rojo según antigüedad
+export function colorByAge(ts) {
+  if (!ts) return "blue";
+  const ms = (ts instanceof Date) ? ts.getTime() : Number(ts);
+  const diffH = (Date.now() - ms) / 3_600_000;
+  return diffH >= 2 ? "red" : "blue";
+}
 
-  let filtered = new Map();
-  let count = 0;
+/* ============================================================
+   Detección de sector por geocerca
+   ============================================================ */
 
-  for (const [dni, { marker, data }] of latestByDni.entries()) {
-    const matchTexto =
-      !texto ||
-      (String(data.dni || "").includes(texto)) ||
-      (String(data.nombre || "").toLowerCase().includes(texto));
+// Cache de geocercas
+let geofencesData = [];
 
-    const matchComentario =
-      !soloComentario || (data.comentario && data.comentario.trim() !== "");
+// Verifica si un punto está dentro de un polígono (ray casting)
+function pointInPolygon(point, vs) {
+  const x = point[0], y = point[1];
+  let inside = false;
+  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+    const xi = vs[i][0], yi = vs[i][1];
+    const xj = vs[j][0], yj = vs[j][1];
+    const intersect = ((yi > y) !== (yj > y)) &&
+                      (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
 
-    if (matchTexto && matchComentario) {
-      capaSerenos.addLayer(marker);
-      filtered.set(dni, { data });
-      count++;
+// Devuelve el sector correspondiente a un punto
+export function getSectorForPoint(lat, lng) {
+  for (const gf of geofencesData) {
+    if (pointInPolygon([lat, lng], gf.coords)) {
+      return gf.sector; // ej: "Sector 02"
     }
   }
-
-  // 🔹 Actualizar contador global
-  const chip = document.querySelector(".count");
-  if (chip) chip.textContent = String(count);
-
-  // 🔹 Actualizar la leyenda por sector
-  updateSectorCountsFrom(filtered);
+  return null; // fuera de todas las geocercas
 }
 
-/* =====================================================================
-   Inicialización UI
-   ===================================================================== */
-(function initUI() {
-  const { fechaNormal, turno } = getTurnoYFecha();
+/* ============================================================
+   Leyendas dinámicas
+   ============================================================ */
 
-  const fechaInput = document.getElementById("fecha");
-  if (fechaInput) {
-    if (!fechaInput.value) {
-      const [dd, mm, yyyy] = fechaNormal.split("-");
-      fechaInput.value = `${yyyy}-${mm}-${dd}`;
-    }
-    fechaInput.addEventListener("change", () => {
-      const fechaDmy = normDMY(fechaInput.value);
-      if (!fechaDmy) return;
-      const turnoActivo =
-        document.querySelector(".turno-buttons .mini-btn.active")?.dataset.turno || "TI";
-      suscribirPersonal(fechaDmy, turnoActivo);
-    });
-  }
-
-  document.querySelectorAll(".turno-buttons .mini-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".turno-buttons .mini-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-
-      const fechaDmy = normDMY(document.getElementById("fecha").value);
-      if (!fechaDmy) return;
-      suscribirPersonal(fechaDmy, btn.dataset.turno);
-    });
+// Actualiza los contadores de la leyenda manual
+export function updateSectorCountsFrom(mapSerenos) {
+  // Reiniciar todos los contadores a 0
+  document.querySelectorAll(".sector-legend .val").forEach(el => {
+    el.textContent = "0";
   });
 
-  document.querySelector("input[placeholder='Nombre o Código']")
-    ?.addEventListener("input", aplicarFiltrosUI);
-  document.querySelector(".check input")
-    ?.addEventListener("change", aplicarFiltrosUI);
+  // Recorrer serenos activos
+  for (const { data } of mapSerenos.values()) {
+    if (data?.sector) {
+      // Extraer número del nombre: "Sector 02" → "2"
+      const matchNum = String(data.sector).match(/\d+/)?.[0];
+      if (!matchNum) continue;
 
-  // Botón "Hoy"
-  document.querySelector(".btn.full")?.addEventListener("click", () => {
-    const { fechaNormal, turno } = getTurnoYFecha();
-    const [dd, mm, yyyy] = fechaNormal.split("-");
-    fechaInput.value = `${yyyy}-${mm}-${dd}`;
-    document.querySelectorAll(".turno-buttons .mini-btn").forEach(b => b.classList.remove("active"));
-    document.querySelector(`[data-turno="${turno}"]`)?.classList.add("active");
-    suscribirPersonal(fechaNormal, turno);
-  });
-
-  // Primera carga
-  suscribirPersonal(fechaNormal, turno);
-})();
-/* =====================================================================
-   Export extra: conteo de serenos en rojo por sector
-   ===================================================================== */
-  export function getSerenosPorSector() {
-    // Inicializa 5 sectores en 0
-    const sectores = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
-
-    for (const { data, ts } of latestByDni.values()) {
-      if (data?.sector) {
-        // Extraer el número de sector desde "Sector 02"
-        const match = String(data.sector).match(/\d+/)?.[0];
-        if (match) {
-          // ¿lleva más de 2h sin escaneo?
-          const diffH = (Date.now() - ts) / 3_600_000;
-          if (diffH >= 2) {
-            sectores[match] = (sectores[match] || 0) + 1;
-          }
-        }
+      const el = document.getElementById(`s${parseInt(matchNum, 10)}`);
+      if (el) {
+        const cur = parseInt(el.textContent || "0", 10);
+        el.textContent = cur + 1;
       }
     }
-
-    return sectores;
   }
+}
+
+/* ============================================================
+   Geocercas
+   ============================================================ */
+onSnapshot(collection(db, "geofences"), (snapshot) => {
+  capaGeofences.clearLayers();
+  geofencesData = []; // reset cache
+
+  snapshot.forEach((doc) => {
+    const data = doc.data();
+
+    if (data.geometry?.path && data.geometry.path.length > 2) {
+      const coords = data.geometry.path.map(p => [p.lat, p.lng]);
+
+      // 🔹 Guardar en memoria para detección de sector
+      geofencesData.push({
+        sector: data.nombre, // usamos "nombre" (ej: "Sector 02")
+        coords
+      });
+
+      const polygon = L.polygon(coords, {
+        color: data.color || "blue",
+        weight: 2,
+        fillColor: data.color || "blue",
+        fillOpacity: 0.25
+      }).addTo(capaGeofences);
+
+      if (data.nombre) {
+        polygon.bindPopup(`<b>${data.nombre}</b>`);
+      }
+    }
+  });
+});
