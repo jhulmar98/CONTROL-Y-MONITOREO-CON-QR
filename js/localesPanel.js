@@ -57,14 +57,15 @@ function estadoLocal(data, local) {
   return ok ? "blue" : "red";
 }
 
-function iconLocal(color) {
-  return L.divIcon({
-    html: `<div style="width:14px;height:14px;background:${color};
-            border:2px solid black;border-radius:4px;"></div>`,
-    iconSize: [14, 14],
-    className: ""
+function iconLocal(color = "blue") {
+  return L.icon({
+    iconUrl: color === "red" ? "../casa2.png" : "../casa1.png",
+    iconSize: [28, 28],     // tamaño recomendado
+    iconAnchor: [14, 28],   // punto inferior
+    popupAnchor: [0, -28]
   });
 }
+
 
 /* =============== Render UI =============== */
 function renderLocalesUI(filtro = "TODO", texto = "") {
