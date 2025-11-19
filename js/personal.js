@@ -267,7 +267,7 @@ function aplicarFiltrosUI() {
         if (match) {
           // ¿lleva más de 2h sin escaneo?
           const diffH = (Date.now() - ts) / 3_600_000;
-          if (diffH >= 2) {
+          if (diffH >= 4) {
             sectores[match] = (sectores[match] || 0) + 1;
           }
         }
@@ -276,3 +276,4 @@ function aplicarFiltrosUI() {
 
     return sectores;
   }
+
